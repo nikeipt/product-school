@@ -47,7 +47,7 @@ except ImportError:
 # --- Bounds (your M5 deliverable: tune these and justify them) ----------------
 MODEL = os.environ.get("CORTEX_MODEL", "gpt-4o-mini")
 MAX_ITERATIONS = int(os.environ.get("CORTEX_MAX_ITERATIONS", "8"))
-MAX_REVISIONS = int(os.environ.get("CORTEX_MAX_REVISIONS", "2"))
+MAX_REVISIONS = int(os.environ.get("CORTEX_MAX_REVISIONS", "1"))
 COST_CAP_USD = float(os.environ.get("CORTEX_COST_CAP_USD", "0.50"))
 MAX_QUEUE_ITEMS = int(os.environ.get("CORTEX_MAX_QUEUE_ITEMS", "10"))
 TOOL_RETRY_ATTEMPTS = 3
@@ -263,6 +263,7 @@ def run(which: str = "happy") -> None:
     no_progress_iterations = 0
     primary_project: dict | None = None
     primary_activity: dict | None = None
+    latest_story_proposal: dict | None = None
     tools_called: list[str] = []
 
     for step in range(1, MAX_ITERATIONS + 1):
@@ -292,7 +293,10 @@ def run(which: str = "happy") -> None:
                 tools_called.append(fn)
                 args = json.loads(call.function.arguments or "{}")
                 result = call_tool_with_retries(fn, args)
-                source_log.append(f"{fn}({args}) -> {json.dumps(result)}")
+                # Story proposals are candidate output, not evidence that can
+                # validate itself. Only retrieval tools enter the source log.
+                if fn != "propose_stories":
+                    source_log.append(f"{fn}({args}) -> {json.dumps(result)}")
                 print(f"\n[step {step}] TOOL {fn}({args})")
                 print(f"          -> {json.dumps(result)[:300]}")
                 messages.append({"role": "tool", "tool_call_id": call.id,
@@ -306,6 +310,8 @@ def run(which: str = "happy") -> None:
 
                 if result.get("status") == "queued_for_approval":
                     stories_queued = True
+                    if fn == "propose_stories":
+                        latest_story_proposal = result
 
                 if fn == "get_project" and "error" not in result and primary_project is None:
                     primary_project = result
@@ -383,9 +389,19 @@ def run(which: str = "happy") -> None:
         if operational_verdict["verdict"] == "fail":
             reason = "objective workflow checks failed: " + "; ".join(
                 operational_verdict["reasons"])
-            emit_deliverable(which, last_draft, accepted=False,
-                             reason=reason, cost=bounds.cost)
-            return
+            if revisions >= MAX_REVISIONS:
+                banner(f"REVISION CAP hit ({MAX_REVISIONS}). Escalating to a human.")
+                emit_deliverable(which, last_draft, accepted=False,
+                                 reason=reason, cost=bounds.cost)
+                return
+            revisions += 1
+            print(f"\n-> objective workflow checks rejected; revision "
+                  f"{revisions}/{MAX_REVISIONS}")
+            messages.append(msg)
+            messages.append({"role": "user", "content":
+                             f"The objective workflow checks rejected the output: "
+                             f"{reason}. Correct it or escalate."})
+            continue
 
         if outcome not in {"done", "escalate"}:
             status_verdict = {
@@ -423,7 +439,17 @@ def run(which: str = "happy") -> None:
                 json.dumps(operational_verdict) +
                 "\nAUTHORITATIVE OBJECTIVE STATUS CHECK -> " +
                 json.dumps(status_verdict))
-            verdict = review(client, MODEL, proposed, critic_sources)
+            critic_payload = {
+                "project_id": result_payload.get("project_id"),
+                "leadership_update": proposed,
+                "proposed_sprint_stories": (
+                    latest_story_proposal.get("stories", [])
+                    if latest_story_proposal else []),
+                "story_proposal_status": result_payload.get(
+                    "story_proposal_status"),
+            }
+            verdict = review(
+                client, MODEL, json.dumps(critic_payload, indent=2), critic_sources)
         except BudgetExceeded as exc:
             emit_deliverable(which, last_draft, accepted=False,
                              reason=str(exc), cost=float(client.spent))
@@ -470,11 +496,24 @@ def run(which: str = "happy") -> None:
             return
 
         reason = "critic checklist failed: " + "; ".join(verdict["reasons"])
-        banner("CRITIC CHECKLIST FAILED. Holding for human review instead of "
-               f"starting a rewrite loop. Run cost ≈ ${bounds.cost:.4f}")
-        emit_deliverable(which, last_draft, accepted=False,
-                         reason=reason, cost=bounds.cost)
-        return
+        if revisions >= MAX_REVISIONS:
+            banner(f"CRITIC CHECKLIST FAILED AGAIN. REVISION CAP hit "
+                   f"({MAX_REVISIONS}); escalating to a human. "
+                   f"Run cost ≈ ${bounds.cost:.4f}")
+            emit_deliverable(which, last_draft, accepted=False,
+                             reason=reason, cost=bounds.cost)
+            return
+        revisions += 1
+        banner(f"CRITIC CHECKLIST FAILED. Returning to Cortex for revision "
+               f"{revisions}/{MAX_REVISIONS}.")
+        messages.append(msg)
+        messages.append({"role": "user", "content":
+                         "The independent validator rejected the output. "
+                         f"{reason}. Verify the objection against the retrieved "
+                         "sources, correct supported errors, and return the full "
+                         "structured result again. If it cannot be corrected from "
+                         "the evidence, escalate."})
+        continue
 
     banner(f"MAX ITERATIONS ({MAX_ITERATIONS}) reached without finishing. "
            f"Escalating. Run cost ≈ ${bounds.cost:.4f}")

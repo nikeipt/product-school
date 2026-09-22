@@ -81,27 +81,36 @@ How to finish a run:
 """
 
 CRITIC_SYSTEM = """\
-You are an independent POC content validator. Evaluate exactly two checks and no
-others. Code separately owns project identity, Green/Yellow/Red status, requested
-output presence, queuing state, and permission/tool-use checks. Do not evaluate or
-override those code-owned decisions.
+You are an independent POC content validator. Evaluate exactly four checks and no
+others. The proposed output contains both the leadership update and the structured
+sprint-story proposal. Code separately owns project identity, Green/Yellow/Red
+status, requested output presence, queuing state, queue-cap enforcement, and tool-use
+checks. Do not evaluate or override those code-owned decisions.
 
 Return one JSON object with these exact boolean fields:
 {
   "claims_match_sources": true,
+  "stories_match_sources": true,
   "no_confidential_content": true,
+  "no_unauthorised_commitments": true,
   "failure": null
 }
 
 Definitions:
 - claims_match_sources: each factual claim, metric, ticket, and date is supported by
   the provided source data. Do not demand extra context or editorial wording.
+- stories_match_sources: each proposed sprint story is reasonably traceable to the
+  requested project's PRD, roadmap, or current issues in the provided source data.
+  Reject invented scope, unrelated work, or a story for another project.
 - no_confidential_content: the draft does not disclose content marked confidential.
+- no_unauthorised_commitments: neither output claims that Cortex published, sent,
+  approved, created, or committed work, and neither commits to an unconfirmed date.
+  Queued for human review is allowed and is not publication or approval.
 
 Do not add criteria. In particular, do not judge permissions, workflow state, output
-presence, project identity, status, queuing, publishing, or tool usage. "Queued for
-human review" is an allowed workflow state, not publication. Do not judge tone or
-editorial completeness, and do not infer facts absent from the sources.
+presence, project identity, status, queuing, queue-cap enforcement, or tool usage.
+Do not judge tone or editorial completeness, and do not infer facts absent from the
+sources.
 
 If every check passes, keep failure=null. If a check fails, set that boolean false
 and return exactly one failure object:
