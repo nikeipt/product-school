@@ -164,6 +164,49 @@ def validate_status_call(status: str | None, project: dict | None,
     return {"verdict": "pass", "reason": "status does not violate an objective rule"}
 
 
+def validate_operational_checks(result: dict, outcome: str,
+                                project: dict | None, stories_requested: bool,
+                                stories_queued: bool,
+                                tools_called: list[str]) -> dict:
+    """Validate objective workflow facts from structured state and the tool trace."""
+    allowed_tools = {
+        schema["function"]["name"] for schema in TOOL_SCHEMAS
+    }
+    forbidden_tools = sorted(set(tools_called) - allowed_tools)
+    expected_project_id = project.get("project_id") if project else None
+    reported_project_id = result.get("project_id")
+
+    checks = {
+        "correct_project": (
+            outcome == "escalate" or
+            bool(expected_project_id) and reported_project_id == expected_project_id
+        ),
+        "requested_outputs_present": (
+            outcome == "escalate" or
+            bool(str(result.get("leadership_update", "")).strip()) and
+            (not stories_requested or (
+                stories_queued and
+                result.get("story_proposal_status") == "queued_for_approval"
+            ))
+        ),
+        "no_unauthorised_action": not forbidden_tools,
+    }
+    reasons = []
+    if not checks["correct_project"]:
+        reasons.append(
+            f"reported project {reported_project_id!r} does not match "
+            f"retrieved project {expected_project_id!r}")
+    if not checks["requested_outputs_present"]:
+        reasons.append("required draft or queued story proposal status is missing")
+    if forbidden_tools:
+        reasons.append(f"forbidden tools were called: {', '.join(forbidden_tools)}")
+    return {
+        **checks,
+        "verdict": "pass" if all(checks.values()) else "fail",
+        "reasons": reasons,
+    }
+
+
 def emit_deliverable(which: str, draft: str, *, accepted: bool,
                      reason: str, cost: float) -> None:
     """Surface AND persist Cortex's drafted status update so it can't get lost in
@@ -220,6 +263,7 @@ def run(which: str = "happy") -> None:
     no_progress_iterations = 0
     primary_project: dict | None = None
     primary_activity: dict | None = None
+    tools_called: list[str] = []
 
     for step in range(1, MAX_ITERATIONS + 1):
         if bounds.over_cap():
@@ -245,6 +289,7 @@ def run(which: str = "happy") -> None:
             found_new_evidence = False
             for call in msg.tool_calls:
                 fn = call.function.name
+                tools_called.append(fn)
                 args = json.loads(call.function.arguments or "{}")
                 result = call_tool_with_retries(fn, args)
                 source_log.append(f"{fn}({args}) -> {json.dumps(result)}")
@@ -330,6 +375,18 @@ def run(which: str = "happy") -> None:
         print(json.dumps(result_payload, indent=2))
         print(f"\n[step {step}] RENDERED OUTPUT:\n{proposed}")
 
+        operational_verdict = validate_operational_checks(
+            result_payload, outcome, primary_project, stories_requested,
+            stories_queued, tools_called)
+        banner("OBJECTIVE WORKFLOW CHECKS")
+        print(json.dumps(operational_verdict, indent=2))
+        if operational_verdict["verdict"] == "fail":
+            reason = "objective workflow checks failed: " + "; ".join(
+                operational_verdict["reasons"])
+            emit_deliverable(which, last_draft, accepted=False,
+                             reason=reason, cost=bounds.cost)
+            return
+
         if outcome not in {"done", "escalate"}:
             status_verdict = {
                 "verdict": "fail",
@@ -360,9 +417,12 @@ def run(which: str = "happy") -> None:
 
         banner("CRITIC, independent validation")
         try:
-            critic_sources = ("\n".join(source_log) +
-                              "\n\nAUTHORITATIVE OBJECTIVE STATUS CHECK -> " +
-                              json.dumps(status_verdict))
+            critic_sources = (
+                "\n".join(source_log) +
+                "\n\nAUTHORITATIVE OBJECTIVE WORKFLOW CHECKS -> " +
+                json.dumps(operational_verdict) +
+                "\nAUTHORITATIVE OBJECTIVE STATUS CHECK -> " +
+                json.dumps(status_verdict))
             verdict = review(client, MODEL, proposed, critic_sources)
         except BudgetExceeded as exc:
             emit_deliverable(which, last_draft, accepted=False,

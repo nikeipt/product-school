@@ -1,4 +1,4 @@
-"""Independent validator (M3) with a fixed, five-check POC contract."""
+"""Independent validator (M3) for grounded claims and confidentiality only."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from prompts import CRITIC_SYSTEM
 
 
 def review(client, model: str, proposed_output: str, source_data: str) -> dict:
-    """Run the fixed checklist; code computes pass/fail from its five booleans."""
+    """Run the two content checks; code owns workflow and permission checks."""
     resp = client.chat.completions.create(
         model=model,
         messages=[
@@ -27,11 +27,8 @@ def review(client, model: str, proposed_output: str, source_data: str) -> dict:
         result = {}
 
     check_names = (
-        "correct_project",
         "claims_match_sources",
         "no_confidential_content",
-        "no_unauthorised_action",
-        "requested_outputs_present",
     )
     malformed = [name for name in check_names if not isinstance(result.get(name), bool)]
     failed = [name for name in check_names if result.get(name) is False]
