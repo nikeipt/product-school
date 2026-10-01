@@ -1,0 +1,30 @@
+PINNED PROJECT: P-NORTH
+
+================================================================
+CORTEX RUN, fixture: task-happy  (auto-queue cap 5 items)
+================================================================
+Task: Weekly leadership status update + next-sprint stories
+Project: P-NORTH (Northstar)
+Requested by: your product lead
+
+Hi, can you put together this week's leadership status update for Northstar
+(P-NORTH)? Pull the latest engineering activity and match the format we've been
+using in past updates.
+
+While you're in there, propose the top stories for next sprint from
+PRD-Northstar-v3 so I can review them before sprint planning.
+
+Nothing goes out until I've looked at it.
+
+[retrieval] get_project({'project_id': 'P-NORTH'})
+[retrieval] get_activity({'project_id': 'P-NORTH'})
+[retrieval] search_past_updates({'query': 'P-NORTH'})
+[retrieval] get_roadmap({'query': 'P-NORTH'})
+[retrieval] get_norms({'query': 'P-NORTH'})
+
+================================================================
+LAST DRAFT (held, NOT posted, escalated to a human)
+================================================================
+(Cortex stopped before it produced a draft, nothing to show.)
+
+Why it was held: $0.001 per-run cap: insufficient budget for next call.

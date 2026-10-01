@@ -13,6 +13,7 @@ class FakeCompletions:
         self.payload = payload
 
     def create(self, **_kwargs):
+        self.last_kwargs = _kwargs
         return SimpleNamespace(
             usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
             choices=[SimpleNamespace(message=SimpleNamespace(
@@ -101,6 +102,63 @@ class CriticContractTests(unittest.TestCase):
     def test_revision_cap_matches_approved_m3_policy(self):
         self.assertEqual(1, agent.MAX_REVISIONS)
 
+
+
+class StoryEvidenceTests(unittest.TestCase):
+    def check(self, assessments):
+        payload = {name: True for name in (
+            "claims_match_sources", "stories_match_sources",
+            "no_confidential_content", "no_unauthorised_commitments")}
+        payload["failure"] = None
+        if assessments is not None:
+            payload["story_assessments"] = assessments
+        output = json.dumps({"proposed_sprint_stories": ["Implement day-2 email"]})
+        return review(fake_client(payload), "gpt-4o-mini", output,
+                      "PR #820 merged: Day-2 milestone email")
+
+    def test_blanket_pass_without_story_evidence_fails(self):
+        self.assertEqual("fail", self.check(None)["verdict"])
+
+    def test_already_completed_story_overrides_blanket_pass(self):
+        self.assertEqual("fail", self.check([{
+            "index": 0, "details_supported": True, "remaining_work": False,
+            "scope_evidence": "PRD includes the day-2 email",
+            "completion_evidence": "PR #820 merged: Day-2 milestone email",
+        }])["verdict"])
+
+    def test_unsupported_detail_overrides_blanket_pass(self):
+        self.assertEqual("fail", self.check([{
+            "index": 0, "details_supported": False, "remaining_work": True,
+            "scope_evidence": "No user-feedback evidence exists",
+            "completion_evidence": "Work is not marked completed",
+        }])["verdict"])
+
+    def test_supported_remaining_work_passes(self):
+        self.assertEqual("pass", self.check([{
+            "index": 0, "details_supported": True, "remaining_work": True,
+            "scope_evidence": "PRD supports email follow-up",
+            "completion_evidence": "Issue #900 explicitly requests outstanding follow-up",
+        }])["verdict"])
+
+
+class StructuredReviewTests(unittest.TestCase):
+    def test_api_request_requires_assessments_and_all_evidence_fields(self):
+        client = fake_client({})
+        review(client, "gpt-4o-mini", "draft", "source")
+        response_format = client.chat.completions.last_kwargs["response_format"]
+        self.assertEqual("json_schema", response_format["type"])
+        contract = response_format["json_schema"]
+        self.assertTrue(contract["strict"])
+        schema = contract["schema"]
+        self.assertIn("story_assessments", schema["required"])
+        self.assertFalse(schema["additionalProperties"])
+        assessment = schema["properties"]["story_assessments"]["items"]
+        self.assertEqual(set(assessment["properties"]), set(assessment["required"]))
+        self.assertFalse(assessment["additionalProperties"])
+
+    def test_non_object_response_fails_closed(self):
+        result = review(fake_client([]), "gpt-4o-mini", "draft", "source")
+        self.assertEqual("fail", result["verdict"])
 
 if __name__ == "__main__":
     unittest.main()

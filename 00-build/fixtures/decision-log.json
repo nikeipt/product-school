@@ -14,7 +14,7 @@
   {
     "date": "2026-05-28",
     "project": "team",
-    "summary": "Decision: backlog batches larger than 10 stories go to sprint planning to be sized, not straight into the tracker.",
+    "summary": "Decision: backlog batches larger than 5 stories go to sprint planning to be sized, not straight into the tracker.",
     "theme": "backlog cap, queue, sprint planning"
   },
   {

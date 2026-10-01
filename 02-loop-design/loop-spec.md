@@ -27,7 +27,7 @@ One Cortex run is done when it has retrieved the required project data, drafted 
 | Condition | What it looks like | What happens |
 |---|---|---|
 | **Success** | The critic returns `pass`; the leadership update and any story proposals are saved and queued for human review; nothing has been published or committed. | Stop successfully at the human-review checkpoint. |
-| **Stuck / give up** | A required project or source is confirmed missing; a temporary retrieval failure continues after three attempts; or two consecutive iterations produce no new evidence or progress. | Stop, log what Cortex attempted, preserve the available evidence, and hand the run to a human. |
+| **Stuck / give up** | A required project or source is confirmed missing; a temporary retrieval failure continues after two attempts (one retry); or two consecutive iterations produce no new evidence or progress. | Stop, log what Cortex attempted, preserve the available evidence, and hand the run to a human. |
 | **Escalate to human** | The request involves confidential or embargoed information; asks Cortex to publish, commit a date, approve work, or make another human-owned decision; contains conflicting evidence Cortex cannot resolve; a tool rejects an action such as exceeding the story cap; or the critic's revision limit is reached. | Stop the run, preserve the last safe draft and evidence, and state the decision the human needs to make. |
 
 ## 4. State

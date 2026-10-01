@@ -1,0 +1,149 @@
+PINNED PROJECT: P-NORTH
+
+================================================================
+CORTEX RUN, fixture: task-happy  (auto-queue cap 5 items)
+================================================================
+Task: Weekly leadership status update + next-sprint stories
+Project: P-NORTH (Northstar)
+Requested by: your product lead
+
+Hi, can you put together this week's leadership status update for Northstar
+(P-NORTH)? Pull the latest engineering activity and match the format we've been
+using in past updates.
+
+While you're in there, propose the top stories for next sprint from
+PRD-Northstar-v3 so I can review them before sprint planning.
+
+Nothing goes out until I've looked at it.
+
+[retrieval] get_project({'project_id': 'P-NORTH'})
+[retrieval] get_activity({'project_id': 'P-NORTH'})
+[retrieval] search_past_updates({'query': 'P-NORTH'})
+[retrieval] get_roadmap({'query': 'P-NORTH'})
+[retrieval] get_norms({'query': 'P-NORTH'})
+
+[step 1] STRUCTURED RESULT:
+{
+  "outcome": "done",
+  "project_id": "P-NORTH",
+  "status": "green",
+  "leadership_update": "## Weekly Leadership Update for Northstar (P-NORTH)\n\n**Status:** Green  \n**Sprint:** Sprint 25  \n\n### Recent Activity  \n- Merged PR: **Day-2 milestone email** on 2026-07-02.  \n- Merged PR: **Empty-state guidance copy (closes #818)** on 2026-07-03.  \n- Open Issue: **Contextual tips A/B needs analytics review** (Severity: Normal).  \n\n### Metrics  \n- **Activation Rate:** 43% (up from 41% week-over-week).  \n\n### Next Steps  \n- Continue development on contextual tips A/B after analytics review.\n\nThis week's updates reflect our ongoing efforts to reduce time-to-first-value in self-serve onboarding, in line with the PRD objectives.",
+  "proposed_sprint_stories": [
+    {
+      "title": "Contextual tips A/B development",
+      "remaining_scope": "Complete development after analytics review is conducted.",
+      "source_refs": [
+        "activity:P-NORTH:#825"
+      ]
+    }
+  ],
+  "story_proposal_status": "queued_for_approval"
+}
+
+[step 1] RENDERED OUTPUT:
+**Status:** Green
+
+## Weekly Leadership Update for Northstar (P-NORTH)
+
+**Status:** Green  
+**Sprint:** Sprint 25  
+
+### Recent Activity  
+- Merged PR: **Day-2 milestone email** on 2026-07-02.  
+- Merged PR: **Empty-state guidance copy (closes #818)** on 2026-07-03.  
+- Open Issue: **Contextual tips A/B needs analytics review** (Severity: Normal).  
+
+### Metrics  
+- **Activation Rate:** 43% (up from 41% week-over-week).  
+
+### Next Steps  
+- Continue development on contextual tips A/B after analytics review.
+
+This week's updates reflect our ongoing efforts to reduce time-to-first-value in self-serve onboarding, in line with the PRD objectives.
+PROVISIONAL STORY BATCH (replaces previous candidates):
+{
+  "status": "queued_for_approval",
+  "project_id": "P-NORTH",
+  "count": 1,
+  "stories": [
+    {
+      "title": "Contextual tips A/B development",
+      "remaining_scope": "Complete development after analytics review is conducted.",
+      "source_refs": [
+        "activity:P-NORTH:#825"
+      ]
+    }
+  ],
+  "reason": "combined draft; provisional review batch",
+  "note": "queued for a human to approve, nothing was created in the tracker."
+}
+
+================================================================
+OBJECTIVE WORKFLOW CHECKS
+================================================================
+{
+  "correct_project": true,
+  "requested_outputs_present": true,
+  "no_unauthorised_action": true,
+  "verdict": "pass",
+  "reasons": []
+}
+
+================================================================
+OBJECTIVE POLICY CHECK, project status
+================================================================
+{
+  "verdict": "pass",
+  "reason": "Green is supported by project.status=on_track, no flags, and no Sev-1 activity"
+}
+
+================================================================
+CRITIC, independent validation
+================================================================
+{
+  "claims_match_sources": true,
+  "stories_match_sources": true,
+  "no_confidential_content": true,
+  "no_unauthorised_commitments": true,
+  "failure": null,
+  "story_assessments": [
+    {
+      "index": 0,
+      "details_supported": true,
+      "remaining_work": true,
+      "scope_evidence": "The proposed story 'Contextual tips A/B development' is supported by the open issue #825 which states 'Contextual tips A/B needs analytics review'.",
+      "completion_evidence": "The issue #825 is open, indicating that the work is not yet completed."
+    }
+  ],
+  "verdict": "pass",
+  "reasons": []
+}
+
+================================================================
+HITL CHECKPOINT, status update + any proposed stories queued for your review. Nothing posted, no commitments made. Run cost ≈ $0.0013
+================================================================
+
+================================================================
+FINAL STATUS UPDATE (draft, validator-approved, NOT posted)
+================================================================
+**Status:** Green
+
+## Weekly Leadership Update for Northstar (P-NORTH)
+
+**Status:** Green  
+**Sprint:** Sprint 25  
+
+### Recent Activity  
+- Merged PR: **Day-2 milestone email** on 2026-07-02.  
+- Merged PR: **Empty-state guidance copy (closes #818)** on 2026-07-03.  
+- Open Issue: **Contextual tips A/B needs analytics review** (Severity: Normal).  
+
+### Metrics  
+- **Activation Rate:** 43% (up from 41% week-over-week).  
+
+### Next Steps  
+- Continue development on contextual tips A/B after analytics review.
+
+This week's updates reflect our ongoing efforts to reduce time-to-first-value in self-serve onboarding, in line with the PRD objectives.
+
+Saved draft -> run-output\status-update-happy.md  (for your review, nothing was posted)

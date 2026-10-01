@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -22,11 +23,67 @@ FIXTURES = Path(__file__).parent / "fixtures"
 # Commitment bound (M5). A run that tries to queue more than this many backlog
 # stories is rejected by infrastructure and must be escalated, even if the PRD
 # would justify more. Auto-committing a flood of "real" work is the money analog.
-MAX_QUEUE_ITEMS = int(os.environ.get("CORTEX_MAX_QUEUE_ITEMS", "10"))
+MAX_QUEUE_ITEMS = int(os.environ.get("CORTEX_MAX_QUEUE_ITEMS", "5"))
 
 
 def _load_json(name: str) -> dict:
     return json.loads((FIXTURES / name).read_text())
+
+
+def _restricted(record: dict) -> bool:
+    """Block marked fixture records before any content enters model context."""
+    return (record.get("status") == "embargoed" or
+            "confidential" in record.get("flags", []) or
+            "CONFIDENTIAL" in record.get("prd_summary", "").upper())
+
+
+def _resolve_project(query: str):
+    query = str(query or "").strip().lower()
+    projects = _load_json("projects.json")
+    matches = [(pid, record) for pid, record in projects.items()
+               if query and (query == pid.lower() or
+                             query == record["name"].split(" (")[0].lower() or
+                             query == str(record.get("prd", "")).lower())]
+    if len(matches) != 1 or _restricted(matches[0][1]):
+        return None
+    return matches[0]
+
+
+
+def resolve_task_project(body: str) -> dict:
+    """Resolve the human-selected Project header once, before model access.
+
+    Do not infer a project from incidental mentions in pasted notes.
+    """
+    selections = re.findall(r"^Project:\s*(.+)$", body, re.MULTILINE | re.IGNORECASE)
+    if len(selections) != 1:
+        return {"error": "project_selection_required"}
+    selector = selections[0].strip().split(" (")[0]
+    resolved = _resolve_project(selector)
+    if resolved is None:
+        return {"error": "invalid_project_selection"}
+    pid, record = resolved
+    return {"project_id": pid, "aliases": [pid.lower(),
+            record["name"].split(" (")[0].lower(), str(record.get("prd", "")).lower()]}
+
+
+def sanitize_fixture_text(text: str) -> str:
+    """Redact restricted fixture identifiers even in briefs and shared norms.
+
+    This fixture policy is not a general PII/secret scanner for live connectors.
+    """
+    for pid, record in _load_json("projects.json").items():
+        if _restricted(record):
+            for label in (pid, record["name"].split(" (")[0]):
+                text = re.sub(r"\b" + re.escape(label) + r"\b",
+                              "[restricted project]", text, flags=re.IGNORECASE)
+    return text
+
+
+def _safe_record(record: dict) -> dict:
+    # Personal identifiers are unnecessary evidence for this fixture workflow.
+    return {key: value for key, value in record.items()
+            if key not in {"pm", "author", "email", "owner", "assignee"}}
 
 
 def get_task(which: str = "happy") -> dict:
@@ -40,7 +97,7 @@ def get_task(which: str = "happy") -> dict:
     if not path.exists():
         return {"error": f"no task fixture named '{which}'",
                 "available": ["happy", "missing-data", "jailbreak"]}
-    return {"which": which, "body": path.read_text()}
+    return {"which": which, "body": sanitize_fixture_text(path.read_text())}
 
 
 def get_project(project_id: str) -> dict:
@@ -48,13 +105,12 @@ def get_project(project_id: str) -> dict:
     project_id = str(project_id).strip()
     projects = _load_json("projects.json")
     record = projects.get(project_id)
-    if record is None:
+    if record is None or _restricted(record):
         return {"error": "project_not_found", "project_id": project_id,
-                "hint": "no such project in the system",
-                "known_projects": list(projects.keys())}
+                "hint": "no such project in the system"}
     # Return the project WITHOUT its activity blob; activity is a separate tool call
     # so the agent has to deliberately pull it (a teachable retrieval step).
-    return {k: v for k, v in record.items() if k != "activity"}
+    return _safe_record({k: v for k, v in record.items() if k != "activity"})
 
 
 def get_activity(project_id: str) -> dict:
@@ -62,43 +118,58 @@ def get_activity(project_id: str) -> dict:
     project_id = str(project_id).strip()
     projects = _load_json("projects.json")
     record = projects.get(project_id)
-    if record is None:
+    if record is None or _restricted(record):
         return {"error": "project_not_found", "project_id": project_id}
-    return {"project_id": project_id, "activity": record.get("activity", [])}
+    return {"project_id": project_id, "activity": [_safe_record(item) for item in record.get("activity", [])]}
 
 
 def search_past_updates(query: str = "") -> dict:
     """Search previous status updates and decisions for tone and precedent (the
     memory/retrieval surface).
 
-    Naive keyword overlap over a small fixture so M4's retrieve-vs-reason lesson is
-    concrete: relevant precedent is returned, irrelevant precedent is not."""
-    query = (query or "").lower()
-    corpus = _load_json("past-updates.json") + _load_json("decision-log.json")
-    terms = {t for t in query.replace("#", " ").split() if len(t) > 2}
-    hits = []
-    for u in corpus:
-        haystack = f"{u.get('project','')} {u.get('summary','')} {u.get('theme','')}".lower()
-        if terms and any(term in haystack for term in terms):
-            hits.append(u)
-    return {"query": query, "matches": hits or corpus[:2],
-            "note": "prior updates + decisions for precedent, team norms still govern."}
+    Return the last two updates and active decisions for one exact project.
+    Ambiguous or restricted queries fail closed; never fall back across projects."""
+    resolved = _resolve_project(query)
+    if resolved is None:
+        return {"error": "invalid_project_query",
+                "hint": "use an authorised project ID, exact name or recorded PRD ID"}
+    _, record = resolved
+    name = record["name"].split(" (")[0]
+    updates = [item for item in _load_json("past-updates.json")
+               if item.get("project") == name]
+    updates.sort(key=lambda item: item.get("week", ""), reverse=True)
+    decisions = [item for item in _load_json("decision-log.json")
+                 if item.get("project") in {name, "team"} and
+                 not item.get("superseded", False)]
+    matches = [_safe_record(item) for item in updates[:2] + decisions]
+    return {"matches": matches,
+            "note": "last two project updates plus active project/team decisions"}
 
 
 def get_roadmap(query: str = "") -> dict:
-    """Return the roadmap. Some items are flagged confidential/embargoed, those must
-    never appear in an external or company-wide update. `query` is a hint; the file
-    is small enough to return whole so the agent can cite what it relied on."""
-    text = (FIXTURES / "roadmap.md").read_text()
-    return {"query": query, "roadmap": text,
-            "warning": "items marked CONFIDENTIAL must not be shared outside the core team."}
+    """Return only one non-confidential project section, selected by ID or name."""
+    resolved = _resolve_project(query)
+    if resolved is None:
+        return {"error": "invalid_project_query",
+                "hint": "use an authorised project ID, exact name or recorded PRD ID"}
+    pid, record = resolved
+    name = record["name"].split(" (")[0]
+    sections = re.split(r"(?m)(?=^## )", (FIXTURES / "roadmap.md").read_text())
+    selected = [section for section in sections
+                if section.startswith("## " + name + " (")]
+    if len(selected) != 1:
+        return {"error": "source_unavailable", "project_id": pid}
+    section = selected[0]
+    if "CONFIDENTIAL" in section.upper() or "EMBARGOED" in section.upper():
+        return {"error": "source_unavailable"}
+    return {"project_id": pid, "roadmap": section.strip()}
 
 
 def get_norms(query: str = "") -> dict:
     """Return the team norms / PM playbook. `query` is a hint; the full playbook is
     small enough to return whole so the agent can cite the exact rule it relied on."""
     text = (FIXTURES / "team-norms.md").read_text()
-    return {"query": query, "norms": text}
+    return {"query": query, "norms": sanitize_fixture_text(text)}
 
 
 def propose_stories(project_id: str, stories=None, reason: str = "") -> dict:

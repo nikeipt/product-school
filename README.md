@@ -1,110 +1,58 @@
 # Cortex: PM Chief-of-Staff Agent
 
-> My final project for Product School's **Agentic Loops for PMs** certification. A chief-of-staff agent that turns raw inputs (project state, GitHub/Jira activity, roadmap, past updates) into finished PM work, a leadership status update and a proposed backlog for a human to clear, built loop-first, bounded, grown into a fleet, and shipped up the Trust Ladder.
+Product School · Agentic Loops for PMs · Nick Ngoh
 
-This is a **template repo**. Click **Use this template → Create a new repository**, name it `pm-os-agent` (or your own agent's name), and fill in one folder per module as you go.
+Cortex prepares leadership updates and capped sprint-story proposals from the selected project’s evidence. It checks outputs in code, runs a separate validator and holds all output for human review. **Current rung: supervised.** This is a local mock-data prototype; live integrations and production deployment are planned.
 
----
+## Submission package
 
-## The story this repo tells
+- [HTML pitch deck](06-autonomy/pitch.html) — self-contained, with embedded evidence images; open in a browser, navigate with arrow keys, or print.
+- [Working prototype and run screenshots](06-autonomy/prototype.md)
+- [Loop specification](02-loop-design/loop-spec.md)
+- [Orchestration map](03-orchestration/orchestration-map.md)
+- [Build insights](06-autonomy/build-insights.md)
+- [Production, autonomy and ROI plan](06-autonomy/production-and-autonomy.md)
+- Supporting policies: [agent line](01-agent-line/agent-line-map.md), [context and memory](04-memory-context/memory-and-context.md), [bounds and evals](05-bounds-evals/bounds-and-evals.md).
 
-Strategy first, structure second. This repo is the **build journey of one agent, Cortex**, laid out as the exact sequence of decisions a PM makes when shipping an AI agent team. **Each folder is one framework from the course**, in the order you actually use it, and each ends in a **validation point** — a deliverable, a validator, or an eval — that proves the step is sound before you build on the next one.
+## Implemented behavior
 
-Read it top to bottom as a narrative:
+Code resolves a canonical project ID, retrieves five approved sources once, and passes that fixed evidence into tool-free drafting. Update and stories arrive together. References, project identity, status and queue bounds are checked in code; the validator checks content support, remaining story scope, confidentiality and commitments. One revision is allowed; another failure blocks and escalates. There is no publication or tracker-mutation tool.
 
-| # | The move (story beat) | Framework | Folder | What this step validates |
-|---|---|---|---|---|
-| 1 | **Draw the line** — decide what the agent owns vs. what stays human, *before* anything runs | The Agent Line | `01-agent-line/` | Every risky action has a clear owner |
-| 2 | **Make it loop** — turn that hand-off into an agent that fires itself and knows when it's "done" | Loop Engineering | `02-loop-design/` | The agent knows when to run and when to stop ★ |
-| 3 | **Grow the team** — split into a fleet only when there's a real reason, and add a validator | Orchestration | `03-orchestration/` | Nothing advances unchecked ★ |
-| 4 | **Feed it context** — give each run the right memory without leaking or drifting | Context Engineering & Memory | `04-memory-context/` | The agent reasons on the right, safe inputs |
-| 5 | **Bound it & prove it** — design for when it goes sideways, and spec it by writing its evals | Bounds, Trust & Evals | `05-bounds-evals/` | It fails safe and is measured |
-| 6 | **Ship & widen trust** — demo it, reflect, and set how far up the Trust Ladder it may climb | Autonomy & the Trust Ladder | `06-autonomy/` | It runs end-to-end and earns autonomy with evidence ★ |
+Model: OpenAI `gpt-4o-mini`. Maximum 3 drafting iterations, 1 revision, 5 stories and $0.50 USD per run shared with the critic. Retrieval failures receive one retry. Sanitisation blocks known confidential course fixtures and strips configured identifier fields; this does not establish safe handling of arbitrary real data.
 
-> **Why the numbers?** The folders keep a leading number so they sort in build order on GitHub; the name after it (`-agent-line`, `-loop-design`, …) is the framework. Number = *when*, name = *what*.
+## Run locally
 
----
+From `00-build`, create a virtual environment if needed and install `requirements.txt`. Create `.env` from `.env.example` only if it does not already exist, then supply your own `OPENAI_API_KEY`. Never commit the key. A live run sends mock task and retrieved evidence to the configured OpenAI API endpoint; obtain authorization for any real data.
 
-## How each lab runs: paste the module's `LAB.md` into your AI assistant
-
-Every module folder ships a **`LAB.md`** — a runbook written *for your AI assistant*. Instead of reading a
-guide and filling in a form, you **paste the module's `LAB.md` into your coding agent (Claude Code, Cursor,
-Codex) or a chatbot (ChatGPT, Claude, Gemini)** and it walks you through the lab: it asks for your
-decisions one step at a time, writes the deliverable file, runs Cortex where needed, and commits.
-
-| Module | Paste this into your assistant |
-|---|---|
-| M1 | `01-agent-line/LAB.md` |
-| M2 | `02-loop-design/LAB.md` |
-| M3 | `03-orchestration/LAB.md` |
-| M4 | `04-memory-context/LAB.md` |
-| M5 | `05-bounds-evals/LAB.md` |
-| M6 | `06-autonomy/LAB.md` |
-
-A good opener: *"Open `05-bounds-evals/LAB.md` in this repo and walk me through it one step at a time.
-Stop and ask me at every decision."* If your assistant can't read files (plain ChatGPT), paste the
-`LAB.md` contents directly and it will print each block for you to paste into the deliverable file.
-
-> The **prompt pack** in [`00-build/PROMPTS.md`](00-build/PROMPTS.md) is the quick-reference / fallback:
-> the individual prompts the `LAB.md` files use, if you'd rather drive step by step yourself.
-
----
-
-## Deliverables at a glance
-
-| # | Deliverable | Module | Status | File |
-|---|---|---|---|---|
-| 1 | **Working agent demo** (real run screenshots; link optional) | Built across labs | ☐ | `06-autonomy/prototype.md` |
-| 2 | **Loop Spec** | M2 | ☐ | `02-loop-design/loop-spec.md` |
-| 3 | **Orchestration Map** | M3 | ☐ | `03-orchestration/orchestration-map.md` |
-| 4 | **Insights: build process** | M6 | ☐ | `06-autonomy/build-insights.md` |
-| 5 | **Bounds, trust & autonomy strategy** | M6 | ☐ | `06-autonomy/production-and-autonomy.md` |
-
-## The agent in one sentence
-
-_What does your agent do, for whom, and where is the agent line, what does it decide vs. what stays human?_
-
-## Build & demo
-
-- **How you built it:** _which coding agent (Claude Code / Cursor / Codex) you directed, start in `00-build/`_
-- **Demo link:** _[optional shareable URL]_
-- **Run screenshots:** _required, collected M2 to M6 in `06-autonomy/prototype.md`_
-
-## Where it sits on the Trust Ladder
-
-_shadow · assisted · supervised · bounded-autonomous · autonomous, which rung today, and what eval evidence would let it climb the next one?_
-
----
-
-## How to submit
-
-- Turn the five deliverable files into your final deck (use the **Final Project Deliverables Builder** that ships with the course, it generates `pitch.html` + a clean `README.md` for you, or a tool like Gamma).
-- Submit your own copy to the learning platform within 7 days of your cohort ending.
-
-## Repo structure
-
+```powershell
+$env:PYTHONIOENCODING = 'utf-8'
+& '.\.venv\Scripts\python.exe' -u agent.py happy
 ```
-pm-os-agent/
-├── README.md                          ← this dashboard
-├── 00-build/                          ← runnable starter: the transparent Cortex agent,
-│   │                                    fixtures, RUNBOOK, PROMPTS, CORTEX-ANATOMY
-│   ├── RUNBOOK.md                     ← open in your coding agent, add a key, run a fixture, screenshot
-│   ├── PROMPTS.md                     ← the prompt pack: what to say to your coding agent
-│   ├── CORTEX-ANATOMY.md              ← the 7 things every submission must show
-│   ├── agent.py · critic.py · tools.py · prompts.py
-│   └── fixtures/                      ← mock PM tasks + project/roadmap/updates/norms data
-├── 01-agent-line/
-│   └── agent-line-map.md              ← M1: what to hand to the agent (above vs below the line)
-├── 02-loop-design/
-│   └── loop-spec.md                   ← M2: the Loop Spec                 ★ Deliverable 2
-├── 03-orchestration/
-│   └── orchestration-map.md           ← M3: your fleet + the validator     ★ Deliverable 3
-├── 04-memory-context/
-│   └── memory-and-context.md          ← M4: retrieve-vs-long-context + your PM brain
-├── 05-bounds-evals/
-│   └── bounds-and-evals.md            ← M5: hard bounds + trajectory evals
-└── 06-autonomy/
-    ├── prototype.md                   ← demo + screenshots                ★ Deliverable 1
-    ├── build-insights.md              ← friction · learning · aha         ★ Deliverable 4
-    └── production-and-autonomy.md     ← dial · Trust Ladder · governance  ★ Deliverable 5
+
+Other fixtures: `agent.py missing-data` and `agent.py jailbreak`. From the repo root, run offline checks with:
+
+```powershell
+& '.\00-build\.venv\Scripts\python.exe' -m unittest discover -s 00-build -p 'test_*.py'
 ```
+
+## Evidence and limits
+
+The prototype contains screenshots for happy-path review, critic rejection, grounding versus missing source, jailbreak refusal, a cost-bound stop and an end-to-end run. The happy-path row shares the grounded-answer screenshot and explicitly records its current rerun date. The rejection test deliberately injects unsupported referral work; real validator calls reject it and escalate after one revision. The cost probe uses a temporary $0.001 cap to block the first API call; it does not demonstrate an observed runaway. Historical transcripts and current reruns are labelled separately.
+
+Known validator misses include unsupported causal claims and unverified Vega notes entering a held Northstar draft. A validator pass does not replace human review. The 2-minute timeout, shared $2/day cap and kill switch are not enforced. Live connectors, trigger deduplication, isolated run worktrees, durable memory/retention, JIT tokens, dashboard and alerts are design commitments, not production capabilities.
+
+## Trust gate and rollout
+
+PMs, engineering leads and executives receive a full validated draft followed by human review. Context and language vary by segment; publication approval remains required.
+
+Widen routine PM weekly-update preparation only after **four weeks and at least 20 supervised runs** achieve at least 95% for each EV-1, EV-2, EV-5 and EV-6, 100% for EV-3 and EV-4, at least 95% of drafts accepted without substantive edits, at least 90% less hands-on time and zero safety incidents. The gate has not been achieved. Story proposals and publication are outside the proposed future autonomous scope; exception criteria, audits and an explicit M1 policy revision are still required.
+
+Managed deployment is planned. Nick Ngoh is accountable; a technical backup and escalation route remain unassigned. Pause failures, preserve evidence and prevent failed drafts from entering approved memory. Model outages return work to Nick.
+
+## ROI target
+
+Recoup build costs within six months, valuing Nick’s time at $1/minute ($60/hour). Net savings compare avoided manual work against ongoing review/troubleshooting time and API/platform costs. Manual baseline, upfront build effort, run frequency and platform pricing remain unmeasured; payback is a target, not a result.
+
+## Submission status
+
+Deck and documentation prepared for review. Commit, push and learning-platform submission remain pending explicit authorization. The original course README is retained in `06-autonomy/submission/README-template-original.md`.
